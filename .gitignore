@@ -27,3 +27,8 @@ coverage
 
 # Codegen intermediate (committed Zod outputs are NOT ignored)
 .codegen-cache
+
+# Playwright outputs
+test-results
+playwright-report
+playwright/.cache

@@ -45,7 +45,7 @@ export const bladeCmd = defineCommand({
   category: 'Timeline',
   description:
     'Split the selected annotation at the current playhead into two pieces. The right half is created as a new annotation that copies tier, body, and provenance.',
-  schema: z.object({ id: z.string().uuid() }),
+  schema: z.object({ id: z.guid() }),
   keybinding: { key: 'B' },
   when: 'selection.kind === "annotation"',
   execute: async ({ id }) => {
@@ -79,7 +79,7 @@ export const liftCmd = defineCommand({
   label: 'Lift (delete, keep gap)',
   category: 'Timeline',
   description: 'Delete the selected annotation. Other annotations on the same tier do not move.',
-  schema: z.object({ id: z.string().uuid() }),
+  schema: z.object({ id: z.guid() }),
   keybinding: { key: 'Delete' },
   when: 'selection.kind === "annotation"',
   execute: async ({ id }) => {
@@ -94,7 +94,7 @@ export const rippleCmd = defineCommand({
   category: 'Timeline',
   description:
     'Delete the selected annotation and shift every later annotation on the same tier earlier by the deleted duration.',
-  schema: z.object({ id: z.string().uuid() }),
+  schema: z.object({ id: z.guid() }),
   keybinding: { key: 'Backspace', shift: true },
   when: 'selection.kind === "annotation"',
   execute: async ({ id }) => {

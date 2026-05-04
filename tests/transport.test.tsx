@@ -5,8 +5,6 @@
 // annotation, region-clicked dispatches transport.seek, ProgramMonitor
 // drives <audio> from the transport store.
 
-import { render } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { registerAllCommands } from '@/commands';
 import type { Annotation } from '@/domain/envelope';
 import { server } from '@/mocks/server';
@@ -14,6 +12,8 @@ import { useTransportStore } from '@/stores/transport';
 import { useUiStore } from '@/stores/ui';
 import { ProgramMonitor } from '@/ui/program-monitor';
 import { Waveform } from '@/ui/waveform';
+import { render } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // jsdom doesn't implement HTMLMediaElement play/pause; stub them.
 beforeAll(() => {

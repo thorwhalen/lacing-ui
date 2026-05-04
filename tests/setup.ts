@@ -1,11 +1,27 @@
 import '@testing-library/jest-dom/vitest';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { server } from '@/mocks/server';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 
 // jsdom doesn't implement HTMLMediaElement.play / .pause — stub them so
 // components like ProgramMonitor that drive the <audio> element don't throw.
 HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
 HTMLMediaElement.prototype.pause = vi.fn();
+
+// jsdom doesn't implement window.matchMedia. Theme store reads
+// prefers-color-scheme on init; without this stub it throws.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  })),
+});
 
 // jsdom returns 0 for layout properties so @tanstack/react-virtual decides
 // nothing is in view and renders no rows. Give every element a sensible
@@ -28,7 +44,7 @@ vi.mock('wavesurfer.js', () => ({
   default: {
     create: () => ({
       destroy: () => undefined,
-      registerPlugin: <T,>(plugin: T) => plugin,
+      registerPlugin: <T>(plugin: T) => plugin,
     }),
   },
 }));

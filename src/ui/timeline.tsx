@@ -15,7 +15,7 @@ import type { Annotation } from '@/domain/envelope';
 import { fromMicros, intervalToMicros } from '@/domain/time';
 import { cn } from '@/lib/utils';
 import { useTransportStore } from '@/stores/transport';
-import { useUiStore } from '@/stores/ui';
+import { type Selection, useUiStore } from '@/stores/ui';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -61,6 +61,12 @@ function AnnotationItem({ item, annotation }: AnnotationItemProps) {
       style={itemStyle}
       {...listeners}
       {...attributes}
+      // biome-ignore lint/a11y/useSemanticElements: ARIA grid pattern requires role="gridcell".
+      role="gridcell"
+      tabIndex={selected ? 0 : -1}
+      aria-selected={selected}
+      aria-label={`${annotation.tier}: ${String(annotation.body.text ?? annotation.tier)}`}
+      data-annotation-id={annotation.id}
       onClick={(e) => {
         e.stopPropagation();
         void registry.execute(
@@ -71,6 +77,7 @@ function AnnotationItem({ item, annotation }: AnnotationItemProps) {
       }}
       className={cn(
         'rounded border text-xs cursor-grab active:cursor-grabbing select-none overflow-hidden',
+        'focus:outline-none focus:ring-2 focus:ring-ring',
         selected
           ? 'bg-primary text-primary-foreground border-primary'
           : 'bg-accent text-accent-foreground border-border',
@@ -94,7 +101,9 @@ interface TimelineRowProps {
 function TimelineRow({ tier, items, annotationsById }: TimelineRowProps) {
   const { setNodeRef, rowStyle, rowSidebarStyle, rowWrapperStyle } = useRow({ id: tier.name });
   return (
-    <div style={rowWrapperStyle} className="border-b last:border-b-0">
+    // biome-ignore lint/a11y/useFocusableInteractive: rows aren't focused; cells are.
+    // biome-ignore lint/a11y/useSemanticElements: ARIA grid row.
+    <div role="row" style={rowWrapperStyle} className="border-b last:border-b-0">
       <div
         style={rowSidebarStyle}
         className="flex items-center px-2 text-xs font-medium bg-card border-r"
@@ -154,8 +163,38 @@ function TimelineBody({ tiers, items, annotationsById }: TimelineBodyProps) {
     overscan: 4,
   });
 
+  // ARIA grid keyboard navigation. Left/Right move between siblings within a
+  // row (sorted by start); Up/Down move to the nearest item in the adjacent
+  // tier. Selection mutation flows through the registry so the rest of the UI
+  // (Inspector, list, when-clauses) stays in sync.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const k = e.key;
+    if (k !== 'ArrowLeft' && k !== 'ArrowRight' && k !== 'ArrowUp' && k !== 'ArrowDown') return;
+    const sel = useUiStore.getState().selection;
+    const target = computeNeighbor(sel, k, tiers, grouped);
+    if (target) {
+      e.preventDefault();
+      void registry.execute(
+        'lacing.selection.annotation',
+        { id: target },
+        { source: 'timeline-keyboard' },
+      );
+    }
+  };
+
   return (
-    <div ref={scrollRef} className="overflow-auto" style={{ maxHeight: 360 }}>
+    <div
+      ref={scrollRef}
+      // biome-ignore lint/a11y/useSemanticElements: ARIA grid container.
+      role="grid"
+      aria-label="Annotation timeline"
+      aria-rowcount={tiers.length}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard-nav target.
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      className="overflow-auto focus:outline-none focus:ring-2 focus:ring-ring rounded-b-lg"
+      style={{ maxHeight: 360 }}
+    >
       {virtualize ? (
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((vrow) => {
@@ -258,6 +297,70 @@ function PlayheadIndicator() {
 }
 
 // --- Helpers --------------------------------------------------------------
+
+/** Compute the next selection target for ARIA grid arrow-key navigation. */
+function computeNeighbor(
+  selection: Selection,
+  key: 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown',
+  tiers: Tier[],
+  grouped: Record<string, ItemDefinition[]>,
+): string | null {
+  // No selection → focus the first item in the first non-empty tier.
+  if (selection.kind !== 'annotation') {
+    for (const t of tiers) {
+      const row = grouped[t.name] ?? [];
+      const first = row[0];
+      if (first) return first.id;
+    }
+    return null;
+  }
+  const currentId = selection.id;
+  // Find which tier the current selection lives in.
+  let rowIdx = -1;
+  for (let r = 0; r < tiers.length; r++) {
+    const tier = tiers[r];
+    if (!tier) continue;
+    const row = grouped[tier.name] ?? [];
+    if (row.some((i) => i.id === currentId)) {
+      rowIdx = r;
+      break;
+    }
+  }
+  if (rowIdx < 0) return null;
+  const currentTier = tiers[rowIdx];
+  if (!currentTier) return null;
+
+  if (key === 'ArrowLeft' || key === 'ArrowRight') {
+    const row = grouped[currentTier.name] ?? [];
+    const sorted = [...row].sort((a, b) => a.span.start - b.span.start);
+    const idx = sorted.findIndex((i) => i.id === currentId);
+    const nextIdx = key === 'ArrowLeft' ? idx - 1 : idx + 1;
+    const next = sorted[nextIdx];
+    return next ? next.id : null;
+  }
+  // Up/Down: find nearest item by start time in the adjacent tier.
+  const dir = key === 'ArrowUp' ? -1 : 1;
+  const currentRow = grouped[currentTier.name] ?? [];
+  const currentItem = currentRow.find((i) => i.id === currentId);
+  if (!currentItem) return null;
+  const target = currentItem.span.start;
+  for (let r = rowIdx + dir; r >= 0 && r < tiers.length; r += dir) {
+    const tier = tiers[r];
+    if (!tier) continue;
+    const row = grouped[tier.name] ?? [];
+    let best: ItemDefinition | undefined;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const it of row) {
+      const d = Math.abs(it.span.start - target);
+      if (d < bestDist) {
+        best = it;
+        bestDist = d;
+      }
+    }
+    if (best) return best.id;
+  }
+  return null;
+}
 
 async function dispatchUpdate(
   id: string,

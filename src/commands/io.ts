@@ -1,5 +1,8 @@
-// I/O commands — import / export via the lacing FastAPI adapter endpoints,
-// plus a "switch backend" toggle for the dev-mode picker.
+// I/O commands — import / export via the lacing FastAPI adapter endpoints.
+//
+// Import accepts a string OR a binary blob (the lacing `.annot` format is a
+// SQLite database; can't be sent as text). Export returns the response Blob
+// in `data.blob` so the caller can drive a download.
 
 import { defineCommand } from 'command-wrapex';
 import { z } from 'zod';
@@ -15,6 +18,10 @@ const adapterFormat = z.enum([
   'webvtt',
 ]);
 
+export type AdapterFormat = z.infer<typeof adapterFormat>;
+
+const importContent = z.union([z.string(), z.instanceof(Blob), z.instanceof(ArrayBuffer)]);
+
 export const importFromFormatCmd = defineCommand({
   id: 'lacing.io.import',
   label: 'Import file',
@@ -22,7 +29,7 @@ export const importFromFormatCmd = defineCommand({
   description: 'Upload an annotation file via the lacing /import?format=… endpoint.',
   schema: z.object({
     format: adapterFormat,
-    content: z.string(),
+    content: importContent,
   }),
   execute: async ({ format, content }) => {
     const response = await fetch(`/api/import?format=${encodeURIComponent(format)}`, {
@@ -31,7 +38,7 @@ export const importFromFormatCmd = defineCommand({
       body: content,
     });
     if (!response.ok) {
-      throw new Error(`import failed: ${response.status}`);
+      throw new Error(`import failed: ${response.status} ${await response.text()}`);
     }
     return { success: true, data: await response.json() };
   },
@@ -46,10 +53,10 @@ export const exportToFormatCmd = defineCommand({
   execute: async ({ format }) => {
     const response = await fetch(`/api/export?format=${encodeURIComponent(format)}`);
     if (!response.ok) {
-      throw new Error(`export failed: ${response.status}`);
+      throw new Error(`export failed: ${response.status} ${await response.text()}`);
     }
     const blob = await response.blob();
-    return { success: true, data: { size: blob.size } };
+    return { success: true, data: { blob, format, size: blob.size } };
   },
 });
 

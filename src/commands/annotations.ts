@@ -30,7 +30,7 @@ export const updateAnnotationCmd = defineCommand({
   category: 'Annotations',
   description: "Patch an annotation's body, tier, or confidence.",
   schema: z.object({
-    id: z.string().uuid(),
+    id: z.guid(),
     patch: annotationSchema.partial().omit({ id: true }),
   }),
   when: 'selection.kind === "annotation"',
@@ -45,7 +45,7 @@ export const deleteAnnotationCmd = defineCommand({
   label: 'Delete annotation',
   category: 'Annotations',
   description: 'Remove an annotation by id.',
-  schema: z.object({ id: z.string().uuid() }),
+  schema: z.object({ id: z.guid() }),
   when: 'selection.kind === "annotation"',
   requiresConfirmation: true,
   execute: async ({ id }) => {
@@ -59,7 +59,7 @@ export const acceptAiSuggestionCmd = defineCommand({
   label: 'Accept AI suggestion',
   category: 'AI',
   description: 'Promote an AI-suggested annotation to confidence 1.0.',
-  schema: z.object({ id: z.string().uuid() }),
+  schema: z.object({ id: z.guid() }),
   keybinding: { key: 'A', meta: true, shift: true },
   when: 'selection.kind === "annotation"',
   execute: async ({ id }) => {
@@ -73,7 +73,7 @@ export const rejectAiSuggestionCmd = defineCommand({
   label: 'Reject AI suggestion',
   category: 'AI',
   description: 'Delete an AI-suggested annotation.',
-  schema: z.object({ id: z.string().uuid() }),
+  schema: z.object({ id: z.guid() }),
   keybinding: { key: 'X', meta: true, shift: true },
   when: 'selection.kind === "annotation"',
   execute: async ({ id }) => {

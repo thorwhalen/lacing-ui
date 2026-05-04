@@ -38,7 +38,7 @@ export function TierList() {
   }, []);
 
   return (
-    <aside className="rounded-lg border p-3 flex flex-col gap-2">
+    <aside className="rounded-lg border p-3 flex flex-col gap-2" aria-label="Tier list">
       <h2 className="text-xs font-medium uppercase text-muted-foreground">
         Tiers ({tiers.length})
       </h2>

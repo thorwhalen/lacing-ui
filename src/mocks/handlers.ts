@@ -140,6 +140,34 @@ export function makeHandlers(seed: { annotations?: Annotation[]; tiers?: Tier[] 
       }
       return new HttpResponse(null, { status: 204 });
     }),
+
+    // --- import / export -------------------------------------------------
+    // Stub: dev mode echoes the in-memory store as JSON regardless of
+    // requested format so the import/export UX is clickable offline.
+    http.get('/api/export', ({ request }) => {
+      const format = new URL(request.url).searchParams.get('format') ?? 'web-annotation';
+      const payload = {
+        format,
+        annotations: Array.from(store.annotations.values()),
+        tiers: Array.from(store.tiers.values()),
+      };
+      return new HttpResponse(JSON.stringify(payload, null, 2), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }),
+
+    http.post('/api/import', async ({ request }) => {
+      // Try JSON first; fall back to noop (dev stub doesn't really merge).
+      try {
+        const text = await request.text();
+        const payload = JSON.parse(text) as { annotations?: Annotation[]; tiers?: Tier[] };
+        for (const a of payload.annotations ?? []) store.annotations.set(a.id, a);
+        for (const t of payload.tiers ?? []) store.tiers.set(t.name, t);
+        return HttpResponse.json({ imported: payload.annotations?.length ?? 0 });
+      } catch {
+        return HttpResponse.json({ imported: 0, note: 'binary import accepted (stub)' });
+      }
+    }),
   ];
 }
 

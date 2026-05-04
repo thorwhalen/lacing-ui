@@ -4,9 +4,6 @@
 // store correctly through the provider), not on dnd-kit's drag mechanics
 // which need full pointer events.
 
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { registerAllCommands, registry } from '@/commands';
 import type { Tier } from '@/domain/collections';
 import type { Annotation } from '@/domain/envelope';
@@ -15,6 +12,9 @@ import { server } from '@/mocks/server';
 import { useTransportStore } from '@/stores/transport';
 import { useUiStore } from '@/stores/ui';
 import { Timeline } from '@/ui/timeline';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 beforeAll(() => {
   registerAllCommands();
@@ -27,7 +27,13 @@ const tier = (name: string, parent: string | null = null): Tier => ({
   metadata: {},
 });
 
-const ann = (id: string, tierName: string, startMicros: number, endMicros: number, text = 'x'): Annotation => ({
+const ann = (
+  id: string,
+  tierName: string,
+  startMicros: number,
+  endMicros: number,
+  text = 'x',
+): Annotation => ({
   id,
   tier: tierName,
   reference: {

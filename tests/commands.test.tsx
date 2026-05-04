@@ -1,12 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
 import App from '@/App';
 import { registry } from '@/commands';
 import { makeHandlers } from '@/mocks/handlers';
 import { server } from '@/mocks/server';
 import { useTransportStore } from '@/stores/transport';
 import { useUiStore } from '@/stores/ui';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it } from 'vitest';
 
 afterEach(() => {
   server.resetHandlers();

@@ -1,9 +1,9 @@
+import App from '@/App';
+import { makeHandlers } from '@/mocks/handlers';
+import { server } from '@/mocks/server';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { server } from '@/mocks/server';
-import { makeHandlers } from '@/mocks/handlers';
-import App from '@/App';
 
 afterEach(() => server.resetHandlers());
 
@@ -16,9 +16,7 @@ describe('App smoke', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create/i }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/words/)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/words/)).toBeInTheDocument());
     expect(screen.queryByText(/none yet/)).not.toBeInTheDocument();
   });
 });

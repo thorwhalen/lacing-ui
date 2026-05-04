@@ -24,7 +24,7 @@ export const tierSchema = z
     name: z.string().min(1),
     stereotype: tierStereotype.default('NONE'),
     parent: z.string().min(1).nullable().optional(),
-    metadata: z.record(z.unknown()).default({}),
+    metadata: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
 
@@ -41,7 +41,7 @@ export const tierCollection = defineCollection(tierSchema, {
 
 export const projectSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     name: z.string().min(1),
     description: z.string().default(''),
     rate: z.number().int().positive().default(24000),

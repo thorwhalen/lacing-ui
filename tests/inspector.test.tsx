@@ -4,9 +4,6 @@
 // Inspector loads → edit confidence → Save → MSW receives PATCH → re-fetch
 // shows the new value.
 
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
 import App from '@/App';
 import type { Tier } from '@/domain/collections';
 import type { Annotation } from '@/domain/envelope';
@@ -14,6 +11,9 @@ import { makeHandlers } from '@/mocks/handlers';
 import { server } from '@/mocks/server';
 import { useTransportStore } from '@/stores/transport';
 import { useUiStore } from '@/stores/ui';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it } from 'vitest';
 
 afterEach(() => {
   server.resetHandlers();
@@ -74,9 +74,7 @@ describe('Inspector', () => {
   it('shows the placeholder when no annotation is selected', async () => {
     server.use(...makeHandlers());
     render(<App />);
-    expect(
-      await screen.findByText(/Inspector — select an annotation/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Inspector — select an annotation/i)).toBeInTheDocument();
   });
 
   it('loads the selected annotation and exposes a body editor', async () => {
@@ -94,7 +92,7 @@ describe('Inspector', () => {
     expect(screen.getByText(/annot:\/\/schema\/word\/v1/)).toBeInTheDocument();
   });
 
-  it('saves an envelope edit through the registry → provider', async () => {
+  it('Save is disabled until the form is dirty; an edit + Save round-trips', async () => {
     const a = ann('22222222-2222-4222-8222-222222222222');
     server.use(...makeHandlers({ annotations: [a] }));
     const user = userEvent.setup();
@@ -103,14 +101,24 @@ describe('Inspector', () => {
     await user.click(await screen.findByRole('button', { name: /words.*hello/i }));
     await waitFor(() => expect(screen.getByText('Inspector')).toBeInTheDocument());
 
-    // Save without edits — round-trips through PATCH.
-    await user.click(screen.getByRole('button', { name: /^save$/i }));
+    // Scope queries to the Inspector aside — `/tier/i` would otherwise also
+    // match the Tier list sidebar's `aria-label="Tier list"`.
+    const inspector = within(screen.getByRole('complementary', { name: 'Inspector' }));
 
+    // Initially clean — Save is disabled.
+    expect(inspector.getByRole('button', { name: /^save$/i })).toBeDisabled();
+
+    // Edit the tier field; Save activates.
+    const tierInput = inspector.getByLabelText(/tier/i);
+    await user.clear(tierInput);
+    await user.type(tierInput, 'phonemes');
+    await waitFor(() => expect(inspector.getByRole('button', { name: /^save$/i })).toBeEnabled());
+
+    await user.click(inspector.getByRole('button', { name: /^save$/i }));
     await waitFor(() =>
-      // 'Saving…' resolves back to 'Save' on success.
-      expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled(),
+      // After commit, dirty clears and Save becomes disabled again.
+      expect(inspector.getByRole('button', { name: /^save$/i })).toBeDisabled(),
     );
-    // No error visible.
     expect(screen.queryByText(/^error:/)).not.toBeInTheDocument();
   });
 });

@@ -30,7 +30,7 @@ export const nodeRefSchema = z
 export const annotationRefSchema = z
   .object({
     kind: z.literal('annotation'),
-    target_id: z.string().uuid(),
+    target_id: z.guid(),
     interval: timeIntervalSchema.nullable().optional(),
   })
   .strict();
@@ -54,7 +54,7 @@ export const provenanceSchema = z
   .object({
     was_generated_by: z.string().min(1),
     was_attributed_to: z.string().min(1),
-    was_derived_from: z.array(z.string().uuid()).default([]),
+    was_derived_from: z.array(z.guid()).default([]),
     generated_at_time: rationalTimeSchema,
     activity: provenanceActivity.default('create'),
   })
@@ -82,10 +82,10 @@ const bodySchemaUri = z.string().regex(/^annot:\/\/schema\/[a-z0-9-]+\/v\d+$/, {
 
 export const annotationSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     tier: z.string().min(1),
     reference: referenceSchema,
-    body: z.record(z.unknown()),
+    body: z.record(z.string(), z.unknown()),
     body_schema_uri: bodySchemaUri,
     provenance: provenanceSchema,
     confidence: z.number().min(0).max(1).nullable().optional(),

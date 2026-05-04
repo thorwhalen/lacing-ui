@@ -2,6 +2,11 @@
 // (tier, confidence) plus a body sub-form keyed on the annotation's
 // body_schema_uri. Save flows through the wrapex `lacing.annotations.update`
 // command — same path the palette / AI tools use.
+//
+// Auto-save: 5s of edit-quiet → commit. No batching across multiple
+// annotations because the Inspector only ever edits one at a time; selection
+// changes flush the timer. Manual Save still works and short-circuits the
+// timer.
 
 import { registry } from '@/commands';
 import { annotationCollection } from '@/domain/collections';
@@ -13,8 +18,10 @@ import { Button } from '@/ui/button';
 import { SchemaForm } from '@/ui/schema-form';
 import { defineCollection } from '@zodal/core';
 import type { CollectionDefinition } from '@zodal/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { z } from 'zod';
+
+const AUTOSAVE_DELAY_MS = 5_000;
 
 // Cache derived collections so SchemaForm + zodal don't re-infer on every render.
 const bodyCollectionCache = new Map<string, CollectionDefinition<z.ZodObject<z.ZodRawShape>>>();
@@ -24,12 +31,27 @@ function bodyCollectionFor(uri: string): CollectionDefinition<z.ZodObject<z.ZodR
   if (!schema) return null;
   let collection = bodyCollectionCache.get(uri);
   if (!collection) {
-    collection = defineCollection(schema as z.ZodObject<z.ZodRawShape>, {
-      // Bodies don't have a stable id — use first string field as label.
-    });
+    collection = defineCollection(schema as z.ZodObject<z.ZodRawShape>, {});
     bodyCollectionCache.set(uri, collection);
   }
   return collection;
+}
+
+function envelopeDraft(a: Annotation): Record<string, unknown> {
+  return { tier: a.tier, confidence: a.confidence ?? null };
+}
+
+function isDirty(
+  annotation: Annotation,
+  draft: Record<string, unknown>,
+  bodyDraft: Record<string, unknown>,
+): boolean {
+  const env = envelopeDraft(annotation);
+  if (env.tier !== draft.tier) return true;
+  if ((env.confidence ?? null) !== (draft.confidence ?? null)) return true;
+  // Shallow compare on body — annotations are frozen so reference equality
+  // wouldn't help; JSON is fine for the sizes we deal with.
+  return JSON.stringify(annotation.body) !== JSON.stringify(bodyDraft);
 }
 
 export function Inspector() {
@@ -39,6 +61,7 @@ export function Inspector() {
   const [bodyDraft, setBodyDraft] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   // Reload the annotation when selection changes.
   useEffect(() => {
@@ -52,9 +75,10 @@ export function Inspector() {
       .then((a) => {
         if (cancelled) return;
         setAnnotation(a);
-        setDraft({ tier: a.tier, confidence: a.confidence ?? null });
+        setDraft(envelopeDraft(a));
         setBodyDraft({ ...a.body });
         setError(null);
+        setSavedAt(null);
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -69,23 +93,9 @@ export function Inspector() {
     [annotation],
   );
 
-  if (selection.kind !== 'annotation') {
-    return (
-      <aside className="rounded-lg border p-4 text-xs text-muted-foreground">
-        Inspector — select an annotation to edit its envelope and body.
-      </aside>
-    );
-  }
+  const dirty = annotation ? isDirty(annotation, draft, bodyDraft) : false;
 
-  if (!annotation) {
-    return (
-      <aside className="rounded-lg border p-4 text-xs text-muted-foreground">
-        {error ? `error: ${error}` : 'loading…'}
-      </aside>
-    );
-  }
-
-  async function handleSave() {
+  const save = useCallback(async () => {
     if (!annotation) return;
     setSaving(true);
     try {
@@ -101,19 +111,49 @@ export function Inspector() {
         { source: 'inspector' },
       );
       if (!result.success) throw new Error(result.message ?? 'update failed');
-      // Re-fetch to pick up the server's view (and a fresh ETag).
       const fresh = await annotationsProvider.getOne(annotation.id);
       setAnnotation(fresh);
       setError(null);
+      setSavedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
+  }, [annotation, draft, bodyDraft]);
+
+  // Auto-save: debounce edits by AUTOSAVE_DELAY_MS, then commit through the
+  // same registry path as the manual Save button.
+  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!annotation || !dirty) return;
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    autosaveRef.current = setTimeout(() => {
+      void save();
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    };
+  }, [annotation, dirty, save]);
+
+  if (selection.kind !== 'annotation') {
+    return (
+      <aside aria-label="Inspector" className="rounded-lg border p-4 text-xs text-muted-foreground">
+        Inspector — select an annotation to edit its envelope and body.
+      </aside>
+    );
+  }
+
+  if (!annotation) {
+    return (
+      <aside aria-label="Inspector" className="rounded-lg border p-4 text-xs text-muted-foreground">
+        {error ? `error: ${error}` : 'loading…'}
+      </aside>
+    );
   }
 
   return (
-    <aside className="rounded-lg border p-4 flex flex-col gap-4">
+    <aside aria-label="Inspector" className="rounded-lg border p-4 flex flex-col gap-4">
       <header>
         <h2 className="text-sm font-medium">Inspector</h2>
         <p className="text-xs text-muted-foreground font-mono">{annotation.id}</p>
@@ -152,22 +192,39 @@ export function Inspector() {
 
       {error && <p className="text-destructive text-xs">error: {error}</p>}
 
-      <div className="flex gap-2">
-        <Button size="sm" onClick={handleSave} disabled={saving}>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={save} disabled={saving || !dirty}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
         <Button
           size="sm"
           variant="outline"
-          disabled={saving}
+          disabled={saving || !dirty}
           onClick={() => {
-            setDraft({ tier: annotation.tier, confidence: annotation.confidence ?? null });
+            setDraft(envelopeDraft(annotation));
             setBodyDraft({ ...annotation.body });
           }}
         >
           Reset
         </Button>
+        <SaveStatus dirty={dirty} saving={saving} savedAt={savedAt} />
       </div>
     </aside>
   );
+}
+
+function SaveStatus({
+  dirty,
+  saving,
+  savedAt,
+}: { dirty: boolean; saving: boolean; savedAt: number | null }) {
+  if (saving) return <span className="text-xs text-muted-foreground">Saving…</span>;
+  if (dirty)
+    return (
+      <span className="text-xs text-muted-foreground">
+        Unsaved — auto-saves in {AUTOSAVE_DELAY_MS / 1000}s
+      </span>
+    );
+  if (savedAt) return <span className="text-xs text-muted-foreground">Saved</span>;
+  return null;
 }

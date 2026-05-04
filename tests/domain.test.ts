@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
 import { annotationCollection, tierCollection } from '@/domain/collections';
 import { annotationSchema, mediaRefSchema, provenanceSchema } from '@/domain/envelope';
 import { fromMicros, intervalToMicros, toMicros } from '@/domain/time';
 import { wordV1Schema } from '@/types/generated';
+import { describe, expect, it } from 'vitest';
 
 describe('time wire conversions', () => {
   it('round-trips microseconds at the default rate', () => {

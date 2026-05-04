@@ -32,6 +32,8 @@ export default defineConfig({
       jsdom: { url: 'http://localhost/' },
     },
     setupFiles: ['./tests/setup.ts'],
+    // Exclude e2e/ — Playwright runs those, not vitest.
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     css: false,
   },
 });

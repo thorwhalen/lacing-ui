@@ -1,11 +1,11 @@
 // End-to-end DataProvider tests through MSW: prove the lacingRestProvider
 // + MSW handlers + envelope Zod all line up before the UI builds on them.
 
-import { afterEach, describe, expect, it } from 'vitest';
-import { server } from '@/mocks/server';
-import { makeHandlers } from '@/mocks/handlers';
-import { createLacingRestProvider } from '@/store/lacing-rest';
 import type { Annotation } from '@/domain/envelope';
+import { makeHandlers } from '@/mocks/handlers';
+import { server } from '@/mocks/server';
+import { createLacingRestProvider } from '@/store/lacing-rest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 const seedAnnotation = (id: string, tier = 'words'): Annotation => ({
   id,

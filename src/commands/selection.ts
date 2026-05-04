@@ -8,7 +8,7 @@ export const selectAnnotationCmd = defineCommand({
   id: 'lacing.selection.annotation',
   label: 'Select annotation',
   category: 'Selection',
-  schema: z.object({ id: z.string().uuid() }),
+  schema: z.object({ id: z.guid() }),
   execute: async ({ id }) => {
     useUiStore.getState().setSelection({ kind: 'annotation', id });
     return { success: true };
