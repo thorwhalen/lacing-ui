@@ -6,6 +6,7 @@ import { ioCommands } from './io';
 import { registry } from './registry';
 import { selectionCommands } from './selection';
 import { tierCommands } from './tiers';
+import { timelineCommands } from './timeline';
 import { transportCommands } from './transport';
 
 let registered = false;
@@ -17,6 +18,7 @@ export function registerAllCommands(): void {
     ...tierCommands,
     ...transportCommands,
     ...selectionCommands,
+    ...timelineCommands,
     ...ioCommands,
   ]);
   registered = true;

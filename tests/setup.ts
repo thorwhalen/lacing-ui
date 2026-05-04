@@ -7,6 +7,19 @@ import { server } from '@/mocks/server';
 HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
 HTMLMediaElement.prototype.pause = vi.fn();
 
+// jsdom returns 0 for layout properties so @tanstack/react-virtual decides
+// nothing is in view and renders no rows. Give every element a sensible
+// rect; @tanstack/virtual-core reads offsetWidth/offsetHeight (not
+// clientWidth/Height) when measuring the scroll container.
+for (const prop of ['clientHeight', 'clientWidth', 'offsetHeight', 'offsetWidth'] as const) {
+  Object.defineProperty(HTMLElement.prototype, prop, {
+    configurable: true,
+    get() {
+      return prop.endsWith('Height') ? 800 : 1200;
+    },
+  });
+}
+
 // wavesurfer.js v7 imports AudioContext at module load — that crashes in
 // jsdom. Mock both the main module and the regions plugin globally; tests
 // that need to assert wavesurfer wiring (Phase 3.5 transport.test.tsx)

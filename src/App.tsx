@@ -1,13 +1,15 @@
 import { registerAllCommands, registry } from '@/commands';
+import type { Tier } from '@/domain/collections';
 import type { Annotation } from '@/domain/envelope';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { annotationsProvider } from '@/store/factories';
+import { annotationsProvider, tiersProvider } from '@/store/factories';
 import { useUiStore } from '@/stores/ui';
 import { Button } from '@/ui/button';
 import { Inspector } from '@/ui/inspector';
 import { CommandPalette } from '@/ui/palette';
 import { ProgramMonitor } from '@/ui/program-monitor';
 import { TierList } from '@/ui/tier-list';
+import { Timeline } from '@/ui/timeline';
 import { Waveform } from '@/ui/waveform';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -40,6 +42,7 @@ function exampleAnnotation(text: string): Partial<Annotation> {
 
 function App() {
   const [items, setItems] = useState<Annotation[]>([]);
+  const [tiers, setTiers] = useState<Tier[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('hello');
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
@@ -51,9 +54,13 @@ function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const result = await annotationsProvider.getList({});
-      setItems(result.data);
-      setLastListSize(result.data.length);
+      const [annResult, tierResult] = await Promise.all([
+        annotationsProvider.getList({}),
+        tiersProvider.getList({}),
+      ]);
+      setItems(annResult.data);
+      setTiers(tierResult.data);
+      setLastListSize(annResult.data.length);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -93,6 +100,8 @@ function App() {
         <ProgramMonitor src={DEMO_AUDIO_URL} onAudioElement={setAudioEl} />
         <Waveform url={DEMO_AUDIO_URL} annotations={items} audioElement={audioEl} />
       </section>
+
+      <Timeline annotations={items} tiers={tiers} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4">
         <TierList />
