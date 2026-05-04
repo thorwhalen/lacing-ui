@@ -6,10 +6,16 @@ import { useUiStore } from '@/stores/ui';
 import { Button } from '@/ui/button';
 import { Inspector } from '@/ui/inspector';
 import { CommandPalette } from '@/ui/palette';
+import { ProgramMonitor } from '@/ui/program-monitor';
 import { TierList } from '@/ui/tier-list';
+import { Waveform } from '@/ui/waveform';
 import { useCallback, useEffect, useState } from 'react';
 
 registerAllCommands();
+
+// Phase 3.5 demo audio — drop a real file at public/sample.wav for dev runs.
+// In production, this URL comes from the project's media manifest.
+const DEMO_AUDIO_URL = '/sample.wav';
 
 function exampleAnnotation(text: string): Partial<Annotation> {
   return {
@@ -36,6 +42,7 @@ function App() {
   const [items, setItems] = useState<Annotation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('hello');
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const setLastListSize = useUiStore((s) => s.setLastListSize);
   const togglePalette = useUiStore((s) => s.togglePalette);
   const selection = useUiStore((s) => s.selection);
@@ -80,6 +87,12 @@ function App() {
           ⌘K Commands
         </Button>
       </header>
+
+      <section className="rounded-lg border p-4 flex flex-col gap-3" aria-label="Program monitor">
+        <h2 className="text-sm font-medium">Program monitor</h2>
+        <ProgramMonitor src={DEMO_AUDIO_URL} onAudioElement={setAudioEl} />
+        <Waveform url={DEMO_AUDIO_URL} annotations={items} audioElement={audioEl} />
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4">
         <TierList />
@@ -135,7 +148,7 @@ function App() {
           </div>
           <p className="text-xs text-muted-foreground">
             Press <kbd className="rounded border px-1">⌘K</kbd> for the command palette. Click an
-            annotation to inspect; Esc clears selection.
+            annotation to inspect; Esc clears selection. Space plays/pauses; J/K/L scrub.
           </p>
         </section>
 
