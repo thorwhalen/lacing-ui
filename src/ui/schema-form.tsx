@@ -5,9 +5,8 @@
 // and the current values, render one field per config using the shadcn
 // renderer registry. Edits flow up through `onChange`.
 
-import type { CollectionDefinition, ResolvedFieldAffordance } from '@zodal/core';
 import { toFormConfig } from '@zodal/ui';
-import type { FormFieldConfig } from '@zodal/ui';
+import type { CollectionDefinition, FormFieldConfig } from '@zodal/ui';
 import { createShadcnRegistry } from '@zodal/ui-shadcn';
 import type { z } from 'zod';
 
@@ -41,10 +40,7 @@ export function SchemaForm<TSchema extends z.ZodObject<z.ZodRawShape>>({
       {configs.map((config) => {
         const affordance = collection.fieldAffordances[config.name];
         if (!affordance) return null;
-        // The runtime affordance carries `zodDef` even though the declared
-        // type from `fieldAffordances` doesn't include it. The registry needs
-        // a ResolvedFieldAffordance — same object at runtime.
-        const Renderer = registry.resolve(affordance as ResolvedFieldAffordance, { mode: 'form' });
+        const Renderer = registry.resolve(affordance, { mode: 'form' });
         if (!Renderer) {
           return (
             <FallbackField
