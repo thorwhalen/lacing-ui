@@ -4,7 +4,9 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { annotationsProvider } from '@/store/factories';
 import { useUiStore } from '@/stores/ui';
 import { Button } from '@/ui/button';
+import { Inspector } from '@/ui/inspector';
 import { CommandPalette } from '@/ui/palette';
+import { TierList } from '@/ui/tier-list';
 import { useCallback, useEffect, useState } from 'react';
 
 registerAllCommands();
@@ -36,6 +38,7 @@ function App() {
   const [text, setText] = useState('hello');
   const setLastListSize = useUiStore((s) => s.setLastListSize);
   const togglePalette = useUiStore((s) => s.togglePalette);
+  const selection = useUiStore((s) => s.selection);
 
   useKeyboardShortcuts();
 
@@ -55,7 +58,6 @@ function App() {
 
   async function handleCreate() {
     try {
-      // Drive through the registry — same path the palette and AI tools use.
       await registry.execute('lacing.annotations.create', exampleAnnotation(text), {
         source: 'ui',
       });
@@ -66,7 +68,7 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen p-8 flex flex-col gap-6 max-w-3xl mx-auto">
+    <main className="min-h-screen p-6 flex flex-col gap-4 max-w-6xl mx-auto">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">lacing</h1>
@@ -79,45 +81,66 @@ function App() {
         </Button>
       </header>
 
-      <section className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Annotations</h2>
-        {error && <p className="text-destructive text-xs">error: {error}</p>}
-        <ul className="text-xs">
-          {items.length === 0 ? (
-            <li className="text-muted-foreground">none yet — create one below</li>
-          ) : (
-            items.map((a) => (
-              <li key={a.id}>
-                <span className="font-mono">{a.tier}</span> · {String(a.body.text)}
-              </li>
-            ))
-          )}
-        </ul>
-        <div className="flex gap-2">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="flex-1 rounded-md border px-2 py-1 text-sm bg-background"
-          />
-          <Button size="sm" onClick={handleCreate}>
-            Create
-          </Button>
-          <Button size="sm" variant="outline" onClick={refresh}>
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => document.documentElement.classList.toggle('dark')}
-          >
-            Dark
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Press <kbd className="rounded border px-1">⌘K</kbd> for the command palette. Transport
-          keys (J/K/L, I/O, space) update the transport store; Esc clears selection.
-        </p>
-      </section>
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4">
+        <TierList />
+
+        <section className="rounded-lg border p-4 flex flex-col gap-3">
+          <h2 className="text-sm font-medium">Annotations ({items.length})</h2>
+          {error && <p className="text-destructive text-xs">error: {error}</p>}
+          <ul className="text-xs flex flex-col gap-1" aria-label="Annotation list">
+            {items.length === 0 ? (
+              <li className="text-muted-foreground">none yet — create one below</li>
+            ) : (
+              items.map((a) => {
+                const selected = selection.kind === 'annotation' && selection.id === a.id;
+                return (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      className={`w-full text-left px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground ${selected ? 'bg-accent text-accent-foreground' : ''}`}
+                      onClick={() =>
+                        void registry.execute(
+                          'lacing.selection.annotation',
+                          { id: a.id },
+                          { source: 'annotation-list' },
+                        )
+                      }
+                    >
+                      <span className="font-mono">{a.tier}</span> · {String(a.body.text)}
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+          <div className="flex gap-2 mt-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="flex-1 rounded-md border px-2 py-1 text-sm bg-background"
+            />
+            <Button size="sm" onClick={handleCreate}>
+              Create
+            </Button>
+            <Button size="sm" variant="outline" onClick={refresh}>
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => document.documentElement.classList.toggle('dark')}
+            >
+              Dark
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Press <kbd className="rounded border px-1">⌘K</kbd> for the command palette. Click an
+            annotation to inspect; Esc clears selection.
+          </p>
+        </section>
+
+        <Inspector />
+      </div>
 
       <CommandPalette />
     </main>
