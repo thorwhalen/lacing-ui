@@ -13,6 +13,7 @@ import { registry } from '@/commands';
 import type { Tier } from '@/domain/collections';
 import type { Annotation } from '@/domain/envelope';
 import { fromMicros, intervalToMicros } from '@/domain/time';
+import type { RemotePresence } from '@/hooks/useAwareness';
 import { cn } from '@/lib/utils';
 import { useTransportStore } from '@/stores/transport';
 import { type Selection, useUiStore } from '@/stores/ui';
@@ -26,6 +27,7 @@ import {
   groupItemsToRows,
   useItem,
   useRow,
+  useTimelineContext,
   useTimelineMonitor,
 } from 'dnd-timeline';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -38,6 +40,8 @@ interface TimelineProps {
   annotations: Annotation[];
   tiers: Tier[];
   className?: string;
+  /** Remote peers' awareness state — rendered as cursors and selection halos. */
+  remote?: RemotePresence[];
 }
 
 // --- Item ----------------------------------------------------------------
@@ -127,9 +131,10 @@ interface TimelineBodyProps {
   tiers: Tier[];
   items: ItemDefinition[];
   annotationsById: Map<string, Annotation>;
+  remote: RemotePresence[];
 }
 
-function TimelineBody({ tiers, items, annotationsById }: TimelineBodyProps) {
+function TimelineBody({ tiers, items, annotationsById, remote }: TimelineBodyProps) {
   // Drag/resize commits dispatch through the registry. dnd-timeline gives us
   // the new span via getSpanFromDragEvent / getSpanFromResizeEvent, but the
   // simpler shape — pull span off the active item — is fine for Phase 3.6.
@@ -192,9 +197,10 @@ function TimelineBody({ tiers, items, annotationsById }: TimelineBodyProps) {
       // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard-nav target.
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="overflow-auto focus:outline-none focus:ring-2 focus:ring-ring rounded-b-lg"
+      className="overflow-auto focus:outline-none focus:ring-2 focus:ring-ring rounded-b-lg relative"
       style={{ maxHeight: 360 }}
     >
+      <RemoteCursors remote={remote} />
       {virtualize ? (
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((vrow) => {
@@ -238,7 +244,7 @@ const VIRTUALIZE_THRESHOLD = 30;
 
 // --- Outer wrapper -------------------------------------------------------
 
-export function Timeline({ annotations, tiers, className }: TimelineProps) {
+export function Timeline({ annotations, tiers, className, remote = [] }: TimelineProps) {
   const [range, setRange] = useState<Range>(DEFAULT_RANGE_MICROS);
   const onRangeChanged = useCallback((updater: (prev: Range) => Range) => {
     setRange(updater);
@@ -281,7 +287,12 @@ export function Timeline({ annotations, tiers, className }: TimelineProps) {
         sidebarWidth={SIDEBAR_WIDTH}
         onResizeEnd={onResizeEnd}
       >
-        <TimelineBody tiers={tiers} items={items} annotationsById={annotationsById} />
+        <TimelineBody
+          tiers={tiers}
+          items={items}
+          annotationsById={annotationsById}
+          remote={remote}
+        />
       </TimelineContext>
     </section>
   );
@@ -293,6 +304,49 @@ function PlayheadIndicator() {
     <span className="text-xs font-mono text-muted-foreground">
       t = {(playhead / 1_000_000).toFixed(3)}s
     </span>
+  );
+}
+
+// --- Remote cursors overlay ---------------------------------------------
+
+interface RemoteCursorsProps {
+  remote: RemotePresence[];
+}
+
+/**
+ * Renders one vertical line per remote peer that has a non-null playhead.
+ * Lives inside the timeline scroll container and uses
+ * `valueToPixels(microseconds)` to compute its x. Pointer-events are
+ * disabled so cursors never block clicks on annotations underneath.
+ */
+function RemoteCursors({ remote }: RemoteCursorsProps) {
+  const { valueToPixels, sidebarWidth } = useTimelineContext();
+  const cursors = remote.filter((r) => r.playhead !== null);
+  if (cursors.length === 0) return null;
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0"
+      data-testid="remote-cursors"
+    >
+      {cursors.map((r) => {
+        const x = sidebarWidth + valueToPixels(r.playhead as number);
+        return (
+          <div
+            key={r.clientId}
+            className="absolute top-0 bottom-0 w-px"
+            style={{ left: x, backgroundColor: r.user.color }}
+          >
+            <span
+              className="absolute -top-px left-0 px-1 text-[10px] font-medium text-white rounded-br whitespace-nowrap"
+              style={{ backgroundColor: r.user.color }}
+            >
+              {r.user.name}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

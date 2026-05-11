@@ -1,6 +1,7 @@
 import { registerAllCommands, registry } from '@/commands';
 import type { Tier } from '@/domain/collections';
 import type { Annotation } from '@/domain/envelope';
+import { useAwareness } from '@/hooks/useAwareness';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { annotationsProvider, tiersProvider } from '@/store/factories';
 import { useCallback, useEffect, useState } from 'react';
@@ -57,6 +58,15 @@ function App() {
 
   useKeyboardShortcuts();
 
+  // Phase 4-A: Yjs Awareness presence. Only connect against the real
+  // backend — MSW doesn't proxy WebSockets. The demo project ID is fixed;
+  // a multi-project UI would derive it from routing.
+  const awarenessEnabled = import.meta.env.VITE_BACKEND === 'real';
+  const { remote } = useAwareness({
+    projectId: 'demo',
+    enabled: awarenessEnabled,
+  });
+
   const refresh = useCallback(async () => {
     try {
       const [annResult, tierResult] = await Promise.all([
@@ -110,7 +120,7 @@ function App() {
         <Waveform url={DEMO_AUDIO_URL} annotations={items} audioElement={audioEl} />
       </section>
 
-      <Timeline annotations={items} tiers={tiers} />
+      <Timeline annotations={items} tiers={tiers} remote={remote} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4">
         <TierList />
