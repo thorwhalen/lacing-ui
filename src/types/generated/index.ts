@@ -3,11 +3,13 @@
 
 import { namedEntityV1Schema } from './named_entity__v1';
 import { namedEntityV2Schema } from './named_entity__v2';
+import { referenceLockV1Schema } from './reference_lock__v1';
 import { wordV1Schema } from './word__v1';
 
 export const bodySchemas = {
   'annot://schema/named-entity/v1': namedEntityV1Schema,
   'annot://schema/named-entity/v2': namedEntityV2Schema,
+  'annot://schema/reference-lock/v1': referenceLockV1Schema,
   'annot://schema/word/v1': wordV1Schema,
 } as const;
 
@@ -15,4 +17,5 @@ export type BodySchemaUri = keyof typeof bodySchemas;
 
 export { namedEntityV1Schema } from './named_entity__v1';
 export { namedEntityV2Schema } from './named_entity__v2';
+export { referenceLockV1Schema } from './reference_lock__v1';
 export { wordV1Schema } from './word__v1';
