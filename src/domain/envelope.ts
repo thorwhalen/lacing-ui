@@ -50,15 +50,25 @@ export type AnnotationRef = z.infer<typeof annotationRefSchema>;
 
 export const provenanceActivity = z.enum(['create', 'import', 'derive', 'migrate', 'infer']);
 
+/**
+ * One upstream reference in `was_derived_from`: an annotation id (UUID) or an
+ * artifact asset_id (64-hex sha256) — mirrors the backend's widened
+ * `ProvenanceRef` union (lacing#14, defect D5). The formats are disjoint
+ * (36-char hyphenated vs 64 hex), so no discrimination ambiguity.
+ */
+export const provenanceRefSchema = z.union([z.guid(), z.string().regex(/^[0-9a-f]{64}$/)]);
+
 export const provenanceSchema = z
   .object({
     was_generated_by: z.string().min(1),
     was_attributed_to: z.string().min(1),
-    was_derived_from: z.array(z.guid()).default([]),
+    was_derived_from: z.array(provenanceRefSchema).default([]),
     generated_at_time: rationalTimeSchema,
     activity: provenanceActivity.default('create'),
   })
   .strict();
+
+export type ProvenanceRef = z.infer<typeof provenanceRefSchema>;
 
 export type Provenance = z.infer<typeof provenanceSchema>;
 

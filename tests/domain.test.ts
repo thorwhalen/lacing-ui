@@ -71,3 +71,27 @@ describe('zodal collections', () => {
     expect(tierCollection.idField).toBe('name');
   });
 });
+
+describe('provenance refs (lacing#14 / D5)', () => {
+  const base = {
+    was_generated_by: 'transform:x@1',
+    was_attributed_to: 'agent:x',
+    generated_at_time: { v: 0, r: 1 },
+  };
+
+  it('accepts annotation UUIDs and 64-hex artifact asset_ids together', () => {
+    const parsed = provenanceSchema.parse({
+      ...base,
+      was_derived_from: ['3b241101-e2bb-4255-8caf-4136c566a962', 'a'.repeat(64)],
+    });
+    expect(parsed.was_derived_from).toHaveLength(2);
+  });
+
+  it('rejects strings that are neither', () => {
+    for (const bad of ['not-a-ref', 'A'.repeat(64), 'c'.repeat(63)]) {
+      expect(
+        provenanceSchema.safeParse({ ...base, was_derived_from: [bad] }).success,
+      ).toBe(false);
+    }
+  });
+});
