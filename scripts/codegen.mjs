@@ -6,8 +6,12 @@
 // `src/types/generated/<name>__v<N>.ts`.
 //
 // Envelope types (RationalTime, TimeInterval, Reference, Provenance) are
-// hand-written in src/types/envelope.ts per the Phase 3 plan — they don't
+// hand-written in src/domain/envelope.ts per the Phase 3 plan — they don't
 // change often and we want explicit control over the wire boundary.
+//
+// The schema dir defaults to the sibling lacing checkout (relative path), but
+// can be overridden with the LACING_SCHEMA_DIR env var — CI uses this to point
+// at a fresh checkout of the lacing repo.
 
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -16,7 +20,9 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
-const SCHEMA_DIR = resolve(REPO_ROOT, '../../t/lacing/lacing/schema');
+const SCHEMA_DIR = process.env.LACING_SCHEMA_DIR
+  ? resolve(process.env.LACING_SCHEMA_DIR)
+  : resolve(REPO_ROOT, '../../t/lacing/lacing/schema');
 const OUT_DIR = resolve(REPO_ROOT, 'src/types/generated');
 
 function fail(msg) {
@@ -27,7 +33,8 @@ function fail(msg) {
 if (!existsSync(SCHEMA_DIR)) {
   fail(
     `lacing JSON Schema dir not found at ${SCHEMA_DIR}. ` +
-      `Regenerate it via:\n  cd ../../t/lacing && python -c "import lacing.bodies; from lacing.schema import export_json_schemas; export_json_schemas('lacing/schema/')"`,
+      `Point LACING_SCHEMA_DIR at the lacing repo's lacing/schema dir, or ` +
+      `regenerate it via:\n  cd ../../t/lacing && python -c "import lacing.bodies; from lacing.schema import export_json_schemas; export_json_schemas('lacing/schema/')"`,
   );
 }
 

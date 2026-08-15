@@ -16,12 +16,16 @@ npm run dev:real  # talks to a running uvicorn lacing.server:app on :8000
 
 - **Vite + React 19 + TypeScript strict**
 - **Biome** for lint and format (replaces ESLint + Prettier)
-- **Vitest + React Testing Library** + one Playwright smoke test (later)
+- **Vitest + React Testing Library** + one Playwright smoke test
+  (`e2e/smoke.e2e.ts`, run via `npm run test:e2e`)
 - **[zodal](https://github.com/thorwhalen/zodal)** for storage / API / UI
   abstractions: `defineCollection`, `DataProvider<T>`,
   `toFormConfig` / `toColumnDefs`, `createShadcnRegistry()`.
 - **[command-wrapex](https://github.com/thorwhalen/wrapex)** for command
   dispatch — every user action is a `defineCommand({ id, label, schema, execute })`.
+  Note: command-wrapex is now legacy in this ecosystem — **acture** is the
+  designated successor for frontend command dispatch. Migration is tracked in
+  this repo's issues; no new wrapex surface should be added in the meantime.
 - **shadcn/ui** primitives (vendored, not an npm dep), **lucide-react** icons.
 - **wavesurfer.js v7** for audio, **dnd-timeline** + `@tanstack/react-virtual`
   for the multitrack body, **react-hook-form** for inspector forms.
@@ -41,7 +45,10 @@ To regenerate the JSON Schema artifacts (in the lacing Python repo):
 python -c "from lacing.schema import export_json_schemas; export_json_schemas('lacing/schema/')"
 ```
 
-Both sides — JSON Schema and Zod — are committed.
+Both sides — JSON Schema and Zod — are committed. By default the codegen reads
+the schemas from the sibling lacing checkout; set `LACING_SCHEMA_DIR` to point
+it elsewhere (CI checks out the lacing repo and uses this to verify that the
+committed Zod is fresh).
 
 ## Backend modes
 
