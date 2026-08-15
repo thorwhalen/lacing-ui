@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (biome)
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      # The Zod in src/types/generated/ is codegened from JSON Schema artifacts
+      # committed in the lacing Python repo. Both sides are committed; this gate
+      # fails when the committed Zod has drifted from lacing's committed schemas.
+      - name: Check out lacing schema artifacts
+        uses: actions/checkout@v4
+        with:
+          repository: thorwhalen/lacing
+          path: lacing-checkout
+          sparse-checkout: lacing/schema
+
+      - name: Codegen freshness
+        env:
+          LACING_SCHEMA_DIR: ${{ github.workspace }}/lacing-checkout/lacing/schema
+        run: |
+          npm run codegen
+          if [ -n "$(git status --porcelain -- src/types/generated)" ]; then
+            echo "::error::src/types/generated is stale — run 'npm run codegen' against the current lacing schemas and commit the result."
+            git status -- src/types/generated
+            git diff -- src/types/generated
+            exit 1
+          fi
