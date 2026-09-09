@@ -29,12 +29,20 @@ jobs:
         run: npm test
 
       # The Zod in src/types/generated/ is codegened from JSON Schema artifacts
-      # committed in the lacing Python repo. Both sides are committed; this gate
-      # fails when the committed Zod has drifted from lacing's committed schemas.
+      # committed in the lacing Python repo, at the version pinned in
+      # .lacing-version. Both sides are committed; this gate fails when the
+      # committed Zod has drifted from the schemas at that pinned version —
+      # i.e. when someone bumps .lacing-version (or lacing ships new schemas)
+      # without re-running `npm run codegen`.
+      - name: Read pinned lacing version
+        id: lacing-version
+        run: echo "version=$(cat .lacing-version)" >> "$GITHUB_OUTPUT"
+
       - name: Check out lacing schema artifacts
         uses: actions/checkout@v4
         with:
           repository: thorwhalen/lacing
+          ref: ${{ steps.lacing-version.outputs.version }}
           path: lacing-checkout
           sparse-checkout: lacing/schema
 
@@ -44,7 +52,7 @@ jobs:
         run: |
           npm run codegen
           if [ -n "$(git status --porcelain -- src/types/generated)" ]; then
-            echo "::error::src/types/generated is stale — run 'npm run codegen' against the current lacing schemas and commit the result."
+            echo "::error::src/types/generated is stale for lacing ${{ steps.lacing-version.outputs.version }} (pinned in .lacing-version) — run 'npm run codegen' against that version's schemas and commit the result."
             git status -- src/types/generated
             git diff -- src/types/generated
             exit 1
