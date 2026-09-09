@@ -47,8 +47,13 @@ python -c "from lacing.schema import export_json_schemas; export_json_schemas('l
 
 Both sides — JSON Schema and Zod — are committed. By default the codegen reads
 the schemas from the sibling lacing checkout; set `LACING_SCHEMA_DIR` to point
-it elsewhere (CI checks out the lacing repo and uses this to verify that the
-committed Zod is fresh).
+it elsewhere.
+
+`.lacing-version` pins the lacing release this repo's generated Zod targets.
+CI checks out that exact tag of the lacing repo and re-runs codegen against
+it; if the committed `src/types/generated/` differs, the build fails — the
+mirror must be regenerated and committed whenever `.lacing-version` is bumped
+or lacing ships new/changed schemas at that version.
 
 ## Backend modes
 
